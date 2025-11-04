@@ -45,11 +45,16 @@ La IA ahora se dirige al usuario por su nombre:
 🙏 Compartido desde Biblia Help
 ```
 
-## 💾 Preparado para Guardar Favoritos
+## 💾 Guardar Favoritos en MongoDB
 
-### Servicios creados:
-- `firestoreService.js` - Guardar y obtener versículos de Firestore
-- Estructura de datos lista para implementar favoritos
+### Funcionalidad completa:
+- Botón "💾 Guardar" para guardar versículos
+- Requiere login con Google
+- Almacenamiento en MongoDB Atlas
+- APIs del backend listas:
+  - `POST /api/save-verse` - Guardar versículo
+  - `GET /api/get-saved-verses` - Obtener versículos guardados
+  - `DELETE /api/delete-saved-verse` - Eliminar versículo
 
 ## 🔧 Mejoras Técnicas
 
@@ -60,8 +65,14 @@ La IA ahora se dirige al usuario por su nombre:
 
 ### Frontend:
 - Store actualizado con estado de usuario
-- Integración con Firebase Auth y Firestore
-- Componente de compartir reutilizable
+- Integración con Google OAuth (sin Firebase)
+- Componentes de compartir y guardar reutilizables
+- Servicio para interactuar con MongoDB via API
+
+### Backend:
+- Cliente de MongoDB con conexión persistente
+- APIs RESTful para CRUD de versículos guardados
+- Validación de usuario en cada operación
 
 ## 📋 Archivos Creados
 
@@ -70,31 +81,38 @@ app-mobile/
 ├── src/
 │   ├── components/
 │   │   ├── GoogleSignInButton.js    ✨ Nuevo
-│   │   └── ShareButton.js           ✨ Nuevo
-│   ├── config/
-│   │   └── firebase.js              ✨ Nuevo
+│   │   ├── ShareButton.js           ✨ Nuevo
+│   │   └── SaveButton.js            ✨ Nuevo
 │   └── services/
-│       ├── authService.js           ✨ Nuevo
-│       └── firestoreService.js      ✨ Nuevo
-├── CONFIGURACION_AUTH.md            ✨ Nuevo
-└── RESUMEN_FEATURES.md              ✨ Nuevo
+│       └── savedVersesService.js    ✨ Nuevo
+
+backend/
+├── lib/
+│   └── mongodb.js                   ✨ Nuevo
+└── api/
+    ├── save-verse.js                ✨ Nuevo
+    ├── get-saved-verses.js          ✨ Nuevo
+    └── delete-saved-verse.js        ✨ Nuevo
+
+CONFIGURACION_AUTH.md                ✨ Actualizado
+RESUMEN_FEATURES.md                  ✨ Actualizado
 ```
 
 ## 🚀 Próximos Pasos
 
-1. **Configurar Firebase:**
-   - Crear proyecto en Firebase Console
-   - Obtener credenciales
-   - Configurar Google OAuth
+1. **Configurar MongoDB Atlas:**
+   - Crear cluster gratuito
+   - Obtener connection string
+   - Agregar MONGODB_URI a Vercel
 
-2. **Actualizar Credenciales:**
-   - `firebase.js` - Credenciales de Firebase
-   - `GoogleSignInButton.js` - Client IDs de Google
+2. **Configurar Google OAuth:**
+   - Crear credenciales en Google Cloud Console
+   - Actualizar Client IDs en `GoogleSignInButton.js`
 
-3. **Implementar Favoritos:**
-   - Botón de guardar en cada versículo
-   - Pantalla de favoritos guardados
-   - Sincronización con Firestore
+3. **Implementar Pantalla de Favoritos:**
+   - Crear pantalla para ver versículos guardados
+   - Botón para eliminar favoritos
+   - Navegación entre pantallas
 
 4. **Testing:**
    - Probar login en dispositivo real
@@ -127,5 +145,8 @@ npx expo start -c
 ✅ Estructura de autenticación implementada
 ✅ Personalización con nombre de usuario
 ✅ Botón de compartir funcional
-⏳ Configuración de Firebase pendiente
-⏳ Implementación de favoritos pendiente
+✅ Botón de guardar funcional
+✅ APIs de MongoDB implementadas
+⏳ Configuración de MongoDB Atlas pendiente
+⏳ Configuración de Google OAuth pendiente
+⏳ Pantalla de favoritos pendiente

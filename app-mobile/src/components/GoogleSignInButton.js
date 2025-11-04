@@ -8,7 +8,7 @@ import { TEMAS } from '../config/constantes';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function GoogleSignInButton() {
-  const { user, setUser, theme } = useAppStore();
+  const { user, setUser, clearUser, theme } = useAppStore();
   const colors = TEMAS[theme] || TEMAS.claro;
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -39,14 +39,14 @@ export default function GoogleSignInButton() {
         firstName: userInfo.given_name || userInfo.name?.split(' ')[0] || 'Amigo',
       };
       
-      setUser(userData);
+      await setUser(userData);
     } catch (error) {
       console.error('Error obteniendo info del usuario:', error);
     }
   };
 
   const handleSignOut = async () => {
-    setUser(null);
+    await clearUser();
   };
 
   if (user) {

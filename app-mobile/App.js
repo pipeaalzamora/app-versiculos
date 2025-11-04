@@ -26,6 +26,7 @@ import PastoralMessage from './src/components/PastoralMessage';
 import ThemeToggle from './src/components/ThemeToggle';
 import GoogleSignInButton from './src/components/GoogleSignInButton';
 import ShareButton from './src/components/ShareButton';
+import SaveButton from './src/components/SaveButton';
 // import useInterstitialAd from './src/hooks/useInterstitialAd';
 
 export default function App() {
@@ -233,10 +234,17 @@ export default function App() {
           {!isLoading && pastoralMessage && (
             <>
               <PastoralMessage mensaje={pastoralMessage} />
-              <ShareButton 
-                versiculo={currentVerses[0]} 
-                palabraAliento={pastoralMessage} 
-              />
+              <View style={styles.actionButtons}>
+                <SaveButton 
+                  versiculo={currentVerses[0]} 
+                  palabraAliento={pastoralMessage}
+                  busqueda={searchTerm}
+                />
+                <ShareButton 
+                  versiculo={currentVerses[0]} 
+                  palabraAliento={pastoralMessage} 
+                />
+              </View>
             </>
           )}
           
@@ -356,5 +364,11 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 20,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 8,
   },
 });
