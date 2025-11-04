@@ -17,14 +17,9 @@ export default function PastoralMessage({ mensaje }) {
           Palabra de Aliento
         </Text>
       </View>
-      <ScrollView 
-        style={styles.messageContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.message, { color: colors.textSecondary }]}>
-          {mensaje}
-        </Text>
-      </ScrollView>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>
+        {mensaje}
+      </Text>
     </View>
   );
 }
@@ -33,7 +28,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -54,12 +49,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  messageContainer: {
-    maxHeight: 300,
-  },
   message: {
-    fontSize: 16,
-    lineHeight: 26,
+    fontSize: 15,
+    lineHeight: 24,
     fontWeight: '400',
     textAlign: 'justify',
   },
