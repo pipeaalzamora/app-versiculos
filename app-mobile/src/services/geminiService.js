@@ -25,8 +25,11 @@ export const sugerirVersiculos = async (entradaUsuario) => {
       };
     }
 
+    const url = `${CONFIGURACION.URL_BACKEND}/api/suggest-verses`;
+    console.log('Conectando a:', url);
+
     const respuesta = await axios.post(
-      `${CONFIGURACION.URL_BACKEND}/api/suggest-verses`,
+      url,
       { userInput: entradaUsuario },
       { 
         timeout: CONFIGURACION.TIMEOUT_API,
@@ -36,6 +39,7 @@ export const sugerirVersiculos = async (entradaUsuario) => {
       }
     );
 
+    console.log('Respuesta recibida:', respuesta.data.mensaje ? 'Con mensaje ✓' : 'Sin mensaje ✗');
     return respuesta.data;
   } catch (error) {
     console.error('Error al sugerir versículos:', error);

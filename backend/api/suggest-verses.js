@@ -158,6 +158,9 @@ Persona que busca consuelo: ${userInput}`;
       textoJson = textoRespuesta.split('```')[1].split('```')[0].trim();
     }
 
+    // Limpiar caracteres de control que pueden romper el JSON
+    textoJson = textoJson.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
     const datos = JSON.parse(textoJson);
 
     return respuesta.status(200).json({

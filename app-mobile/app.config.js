@@ -31,7 +31,8 @@ export default {
       versionCode: 1,
       permissions: [
         "INTERNET"
-      ]
+      ],
+      usesCleartextTraffic: true
     },
     web: {
       favicon: "./assets/favicon.png"

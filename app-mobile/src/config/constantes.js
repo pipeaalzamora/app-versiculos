@@ -1,9 +1,7 @@
 // Configuración de la aplicación
 export const CONFIGURACION = {
-  // URL del backend - Actualizar después de desplegar en Vercel
-  URL_BACKEND: __DEV__ 
-    ? 'http://192.168.1.6:3000' // IP de tu máquina (no usar localhost en Android)
-    : 'https://backend-livid-rho-81.vercel.app/', // URL de producción en Vercel
+  // URL del backend - Usar producción (Android bloquea HTTP en Expo Go)
+  URL_BACKEND: 'https://backend-livid-rho-81.vercel.app',
   
   // Configuración de anuncios
   FRECUENCIA_ANUNCIOS: 5, // Mostrar anuncio cada X búsquedas
