@@ -4,9 +4,10 @@ import { CONFIGURACION } from '../config/constantes';
 /**
  * Analiza el texto del usuario y sugiere versículos específicos usando el backend
  * @param {string} entradaUsuario - Texto ingresado por el usuario
+ * @param {string} nombreUsuario - Nombre del usuario (opcional)
  * @returns {Promise<Object>} - Objeto con versículos sugeridos
  */
-export const sugerirVersiculos = async (entradaUsuario) => {
+export const sugerirVersiculos = async (entradaUsuario, nombreUsuario = null) => {
   try {
     // Validar entrada antes de enviar
     if (!entradaUsuario || typeof entradaUsuario !== 'string') {
@@ -29,7 +30,10 @@ export const sugerirVersiculos = async (entradaUsuario) => {
 
     const respuesta = await axios.post(
       url,
-      { userInput: entradaUsuario },
+      { 
+        userInput: entradaUsuario,
+        userName: nombreUsuario 
+      },
       { 
         timeout: 30000,
         headers: {

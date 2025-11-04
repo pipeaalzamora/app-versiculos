@@ -87,7 +87,7 @@ export default async function manejador(peticion, respuesta) {
       });
     }
 
-    const { userInput } = peticion.body;
+    const { userInput, userName } = peticion.body;
 
     if (!userInput || typeof userInput !== 'string') {
       return respuesta.status(400).json({ 
@@ -107,6 +107,7 @@ export default async function manejador(peticion, respuesta) {
 
     // Usar backoff exponencial
     const resultado = await backoffExponencial(async () => {
+      const nombrePersonalizado = userName ? userName : 'amado hijo/a';
       const prompt = `Eres un pastor espiritual lleno de la gracia de Dios, con profundo conocimiento de la Biblia Reina Valera 1960.
 
 Tu misión es escuchar con compasión el corazón de quien te busca, analizar su situación con sabiduría divina, y ministrar con amor y convicción.
@@ -116,6 +117,7 @@ INSTRUCCIONES:
 2. Identifica su dolor, necesidad o situación
 3. Selecciona 3-5 versículos de la Biblia RV1960 que hablen directamente a su corazón
 4. Escribe una palabra de aliento pastoral (2-4 párrafos) que:
+   - Dirígete a la persona por su nombre: "${nombrePersonalizado}"
    - Reconozca su dolor o situación con empatía
    - Ministre esperanza y consuelo con la Palabra de Dios
    - Hable con convicción y autoridad espiritual
@@ -124,7 +126,7 @@ INSTRUCCIONES:
 
 FORMATO DE RESPUESTA (JSON):
 {
-  "mensaje": "Tu palabra de aliento pastoral aquí. Habla como un pastor que conoce el corazón de Dios y ama a sus ovejas. Usa un tono cálido, compasivo pero con convicción. Menciona cómo Dios ve su situación y qué promesas tiene para ellos.",
+  "mensaje": "Tu palabra de aliento pastoral aquí. IMPORTANTE: Inicia el mensaje dirigiéndote a la persona por su nombre '${nombrePersonalizado}'. Habla como un pastor que conoce el corazón de Dios y ama a sus ovejas. Usa un tono cálido, compasivo pero con convicción. Menciona cómo Dios ve su situación y qué promesas tiene para ellos.",
   "versiculos": [
     {"libro": "salmos", "capitulo": 23, "versiculo": "4"},
     {"libro": "juan", "capitulo": 14, "versiculo": "27"},

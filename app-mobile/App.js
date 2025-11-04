@@ -24,6 +24,8 @@ import { TEMAS } from './src/config/constantes';
 import VerseCard from './src/components/VerseCard';
 import PastoralMessage from './src/components/PastoralMessage';
 import ThemeToggle from './src/components/ThemeToggle';
+import GoogleSignInButton from './src/components/GoogleSignInButton';
+import ShareButton from './src/components/ShareButton';
 // import useInterstitialAd from './src/hooks/useInterstitialAd';
 
 export default function App() {
@@ -37,7 +39,7 @@ export default function App() {
   // const { showAdIfReady} = useInterstitialAd();
   
   // Store
-  const { theme, loadPersistedData, addToHistory } = useAppStore();
+  const { theme, user, loadPersistedData, addToHistory } = useAppStore();
   const colors = TEMAS[theme] || TEMAS.claro;
 
   // Inicializar
@@ -77,8 +79,9 @@ export default function App() {
       setCurrentVerses([]);
       setPastoralMessage('');
 
-      // Paso 1: Intentar con IA
-      const sugerencia = await sugerirVersiculos(searchTerm);
+      // Paso 1: Intentar con IA (incluir nombre del usuario si está logueado)
+      const nombreUsuario = user?.firstName || null;
+      const sugerencia = await sugerirVersiculos(searchTerm, nombreUsuario);
       
       const versiculosObtenidos = [];
 
@@ -168,7 +171,10 @@ export default function App() {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Biblia Help</Text>
-          <ThemeToggle />
+          <View style={styles.headerRight}>
+            <GoogleSignInButton />
+            <ThemeToggle />
+          </View>
         </View>
 
         <TextInput
@@ -181,7 +187,11 @@ export default function App() {
               color: colors.text,
             }
           ]}
-          placeholder="Cuéntame cómo te sientes hoy... Estoy aquí para escucharte"
+          placeholder={
+            user 
+              ? `Desahógate con Dios, ${user.firstName}... Estoy aquí para escucharte` 
+              : "Cuéntame cómo te sientes hoy... Estoy aquí para escucharte"
+          }
           placeholderTextColor={colors.textLight}
           multiline={true}
           numberOfLines={3}
@@ -221,7 +231,13 @@ export default function App() {
           )}
           
           {!isLoading && pastoralMessage && (
-            <PastoralMessage mensaje={pastoralMessage} />
+            <>
+              <PastoralMessage mensaje={pastoralMessage} />
+              <ShareButton 
+                versiculo={currentVerses[0]} 
+                palabraAliento={pastoralMessage} 
+              />
+            </>
           )}
           
           {!isLoading && currentVerses.length > 0 && (
@@ -271,6 +287,11 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: isLargeDevice ? 600 : '100%',
     marginBottom: 24,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   title: {
     fontSize: isSmallDevice ? 24 : 28,

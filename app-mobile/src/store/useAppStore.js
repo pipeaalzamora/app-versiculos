@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const FAVORITES_KEY = '@biblia_help_favorites';
 const HISTORY_KEY = '@biblia_help_history';
 const THEME_KEY = '@biblia_help_theme';
+const USER_KEY = '@biblia_help_user';
 
 export const useAppStore = create((set, get) => ({
   // Estado
@@ -11,20 +12,23 @@ export const useAppStore = create((set, get) => ({
   history: [],
   theme: 'claro',
   isLoading: false,
+  user: null,
 
   // Cargar datos persistidos
   loadPersistedData: async () => {
     try {
-      const [favoritesData, historyData, themeData] = await Promise.all([
+      const [favoritesData, historyData, themeData, userData] = await Promise.all([
         AsyncStorage.getItem(FAVORITES_KEY),
         AsyncStorage.getItem(HISTORY_KEY),
         AsyncStorage.getItem(THEME_KEY),
+        AsyncStorage.getItem(USER_KEY),
       ]);
 
       set({
         favorites: favoritesData ? JSON.parse(favoritesData) : [],
         history: historyData ? JSON.parse(historyData) : [],
         theme: themeData || 'claro',
+        user: userData ? JSON.parse(userData) : null,
       });
     } catch (error) {
       console.error('Error cargando datos:', error);
@@ -86,4 +90,19 @@ export const useAppStore = create((set, get) => ({
 
   // Loading
   setLoading: (isLoading) => set({ isLoading }),
+
+  // Usuario
+  setUser: async (user) => {
+    set({ user });
+    if (user) {
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(USER_KEY);
+    }
+  },
+
+  clearUser: async () => {
+    set({ user: null });
+    await AsyncStorage.removeItem(USER_KEY);
+  },
 }));

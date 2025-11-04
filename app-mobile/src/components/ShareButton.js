@@ -1,51 +1,62 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
-import * as Sharing from 'expo-sharing';
-import * as Haptics from 'expo-haptics';
+import { TouchableOpacity, Text, StyleSheet, Share, Alert } from 'react-native';
+import { useAppStore } from '../store/useAppStore';
+import { TEMAS } from '../config/constantes';
 
-export default function ShareButton({ verse, style }) {
+export default function ShareButton({ versiculo, palabraAliento }) {
+  const { theme } = useAppStore();
+  const colors = TEMAS[theme] || TEMAS.claro;
+
   const handleShare = async () => {
-    if (!verse) return;
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const message = `"${verse.texto}"\n\n${verse.referencia}`;
-
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
+      let mensaje = '';
       
-      if (isAvailable) {
-        await Sharing.shareAsync('data:text/plain;base64,' + btoa(message), {
-          mimeType: 'text/plain',
-          dialogTitle: 'Compartir versículo',
-        });
-      } else {
-        Alert.alert('Compartir no disponible', 'No se puede compartir en este dispositivo');
+      if (palabraAliento) {
+        mensaje += `📖 Palabra de Aliento\n\n${palabraAliento}\n\n`;
+      }
+      
+      if (versiculo) {
+        mensaje += `✝️ ${versiculo.texto}\n\n— ${versiculo.referencia}`;
+      }
+      
+      mensaje += '\n\n🙏 Compartido desde Biblia Help';
+
+      const result = await Share.share({
+        message: mensaje,
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log('Compartido con:', result.activityType);
+        }
       }
     } catch (error) {
+      Alert.alert('Error', 'No se pudo compartir el contenido');
       console.error('Error al compartir:', error);
-      Alert.alert('Error', 'No se pudo compartir el versículo');
     }
   };
 
   return (
-    <TouchableOpacity 
-      onPress={handleShare} 
-      style={[styles.button, style]}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    <TouchableOpacity
+      style={[styles.button, { backgroundColor: colors.primary }]}
+      onPress={handleShare}
     >
-      <Text style={styles.icon}>↗</Text>
+      <Text style={styles.buttonText}>📤 Compartir</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    padding: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'center',
   },
-  icon: {
-    fontSize: 24,
-    color: '#4A90E2',
-    fontWeight: 'bold',
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
