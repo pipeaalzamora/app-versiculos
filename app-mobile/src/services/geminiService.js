@@ -17,10 +17,10 @@ export const sugerirVersiculos = async (entradaUsuario) => {
       };
     }
 
-    if (entradaUsuario.length > 500) {
+    if (entradaUsuario.length > 1000) {
       return {
         success: false,
-        error: 'El texto es demasiado largo. Máximo 500 caracteres.',
+        error: 'El texto es demasiado largo. Máximo 1000 caracteres.',
         versiculos: [],
       };
     }

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView, 
   Platform, 
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import mobileAds from 'react-native-google-mobile-ads';
@@ -21,17 +22,19 @@ import { useAppStore } from './src/store/useAppStore';
 import { TEMAS } from './src/config/constantes';
 // import AdBanner from './src/components/AdBanner';
 import VerseCard from './src/components/VerseCard';
+import PastoralMessage from './src/components/PastoralMessage';
 import ThemeToggle from './src/components/ThemeToggle';
 // import useInterstitialAd from './src/hooks/useInterstitialAd';
 
 export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentVerse, setCurrentVerse] = useState(null);
+  const [currentVerses, setCurrentVerses] = useState([]);
+  const [pastoralMessage, setPastoralMessage] = useState('');
   const [searchMessage, setSearchMessage] = useState('');
   const [isPressed, setIsPressed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
-  // const { showAdIfReady } = useInterstitialAd();
+  // const { showAdIfReady} = useInterstitialAd();
   
   // Store
   const { theme, loadPersistedData, addToHistory } = useAppStore();
@@ -62,23 +65,26 @@ export default function App() {
       // Validar entrada
       if (!searchTerm.trim()) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        setSearchMessage('Por favor ingresa cómo te sientes o qué necesitas');
-        setCurrentVerse(null);
+        setSearchMessage('Por favor cuéntame cómo te sientes o qué necesitas');
+        setCurrentVerses([]);
+        setPastoralMessage('');
         return;
       }
 
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setIsLoading(true);
       setSearchMessage('');
-      setCurrentVerse(null);
+      setCurrentVerses([]);
+      setPastoralMessage('');
 
       // Paso 1: Intentar con IA
       const sugerencia = await sugerirVersiculos(searchTerm);
       
-      let versiculoObtenido = null;
+      const versiculosObtenidos = [];
 
       // Paso 2: Procesar sugerencias de IA
       if (sugerencia.success && sugerencia.versiculos.length > 0) {
+        // Obtener todos los versículos sugeridos
         for (const ref of sugerencia.versiculos) {
           const resultado = await obtenerVersiculo(
             ref.libro,
@@ -87,18 +93,23 @@ export default function App() {
           );
 
           if (resultado.success) {
-            versiculoObtenido = formatearVersiculo(
+            const versiculoFormateado = formatearVersiculo(
               resultado.data,
               ref.libro,
               ref.capitulo
             );
-            break;
+            versiculosObtenidos.push(versiculoFormateado);
           }
+        }
+        
+        // Guardar el mensaje pastoral
+        if (sugerencia.mensaje) {
+          setPastoralMessage(sugerencia.mensaje);
         }
       }
 
-      // Paso 3: Fallback a búsqueda tradicional
-      if (!versiculoObtenido) {
+      // Paso 3: Fallback a búsqueda tradicional (si la IA no devolvió versículos)
+      if (versiculosObtenidos.length === 0) {
         const temasEncontrados = buscarTemasPorPalabra(searchTerm);
 
         if (temasEncontrados.length > 0) {
@@ -112,29 +123,30 @@ export default function App() {
           );
 
           if (resultado.success) {
-            versiculoObtenido = formatearVersiculo(
+            const versiculoFormateado = formatearVersiculo(
               resultado.data,
               referenciaSeleccionada.libro,
               referenciaSeleccionada.capitulo
             );
+            versiculosObtenidos.push(versiculoFormateado);
           }
         }
       }
 
       // Mostrar resultado
-      if (versiculoObtenido) {
+      if (versiculosObtenidos.length > 0) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setCurrentVerse(versiculoObtenido);
+        setCurrentVerses(versiculosObtenidos);
         setSearchMessage('');
         
-        // Guardar en historial
-        addToHistory(versiculoObtenido, searchTerm);
+        // Guardar en historial (guardar el primero como referencia)
+        addToHistory(versiculosObtenidos[0], searchTerm);
         
         // Mostrar anuncio (deshabilitado en desarrollo)
         // showAdIfReady();
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setSearchMessage('No pude encontrar un versículo apropiado. Intenta con otras palabras.');
+        setSearchMessage('No pude encontrar versículos apropiados. Intenta contarme más sobre tu situación.');
       }
 
       setIsLoading(false);
@@ -142,7 +154,8 @@ export default function App() {
       console.error('Error en búsqueda:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSearchMessage('Error al buscar versículos. Verifica tu conexión.');
-      setCurrentVerse(null);
+      setCurrentVerses([]);
+      setPastoralMessage('');
       setIsLoading(false);
     }
   };
@@ -168,8 +181,11 @@ export default function App() {
               color: colors.text,
             }
           ]}
-          placeholder="¿Cómo te sientes? Cuéntame lo que necesitas..."
+          placeholder="Cuéntame cómo te sientes hoy... Estoy aquí para escucharte"
           placeholderTextColor={colors.textLight}
+          multiline={true}
+          numberOfLines={3}
+          textAlignVertical="top"
           value={searchTerm}
           onChangeText={setSearchTerm}
           autoFocus={true}
@@ -195,19 +211,35 @@ export default function App() {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.resultsContainer}>
+        <ScrollView 
+          style={styles.resultsContainer}
+          contentContainerStyle={styles.resultsContent}
+          showsVerticalScrollIndicator={false}
+        >
           {isLoading && (
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
           )}
-          {!isLoading && currentVerse && (
-            <VerseCard verse={currentVerse} />
+          
+          {!isLoading && pastoralMessage && (
+            <PastoralMessage mensaje={pastoralMessage} />
           )}
+          
+          {!isLoading && currentVerses.length > 0 && (
+            <>
+              {currentVerses.map((verse, index) => (
+                <View key={index} style={styles.verseWrapper}>
+                  <VerseCard verse={verse} />
+                </View>
+              ))}
+            </>
+          )}
+          
           {!isLoading && searchMessage && (
             <Text style={[styles.message, { color: colors.textLight }]}>
               {searchMessage}
             </Text>
           )}
-        </View>
+        </ScrollView>
 
         <StatusBar style={theme === 'oscuro' ? 'light' : 'dark'} />
         
@@ -248,10 +280,12 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     maxWidth: isLargeDevice ? 600 : '100%',
-    height: isSmallDevice ? 50 : 56,
+    minHeight: isSmallDevice ? 80 : 100,
+    maxHeight: 150,
     borderWidth: 2,
     borderRadius: 12,
     paddingHorizontal: 20,
+    paddingVertical: 16,
     fontSize: isSmallDevice ? 14 : 16,
     marginBottom: 24,
     shadowColor: '#000',
@@ -281,11 +315,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   resultsContainer: {
+    flex: 1,
     width: '100%',
     maxWidth: isLargeDevice ? 700 : '100%',
-    alignItems: 'center',
+  },
+  resultsContent: {
     paddingHorizontal: isSmallDevice ? 4 : 8,
-    marginTop: 8,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  verseWrapper: {
+    marginBottom: 16,
   },
   message: {
     fontSize: isSmallDevice ? 14 : 16,
