@@ -1,7 +1,7 @@
 // Configuración de la aplicación
 export const CONFIGURACION = {
   // URL del backend - Usar producción (Android bloquea HTTP en Expo Go)
-  URL_BACKEND: "https://backend-livid-rho-81.vercel.app",
+  URL_BACKEND: "https://mfzkhdy2je.us-east-1.awsapprunner.com",
 
   // Configuración de anuncios
   FRECUENCIA_ANUNCIOS: 5, // Mostrar anuncio cada X búsquedas
