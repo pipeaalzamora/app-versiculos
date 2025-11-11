@@ -1,14 +1,14 @@
 // Servidor de desarrollo simple
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Cargar variables de entorno
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -16,42 +16,46 @@ app.use(express.json());
 
 // Inicializar Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // Backoff exponencial
 const exponentialBackoff = async (fn, maxRetries = 3) => {
   let lastError;
-  
+
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      const errorMessage = error.message || '';
-      
-      if (errorMessage.includes('429') || errorMessage.includes('503') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+      const errorMessage = error.message || "";
+
+      if (
+        errorMessage.includes("429") ||
+        errorMessage.includes("503") ||
+        errorMessage.includes("RESOURCE_EXHAUSTED")
+      ) {
         const waitTime = Math.pow(2, i) * 1000;
         console.log(`Rate limit alcanzado. Reintentando en ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
         continue;
       }
-      
+
       throw error;
     }
   }
-  
+
   throw lastError;
 };
 
 // Endpoint
-app.post('/api/suggest-verses', async (req, res) => {
+app.post("/api/suggest-verses", async (req, res) => {
   try {
     const { userInput } = req.body;
 
-    if (!userInput || typeof userInput !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Se requiere userInput como string' 
+    if (!userInput || typeof userInput !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "Se requiere userInput como string",
       });
     }
 
@@ -100,43 +104,42 @@ Persona que busca consuelo: ${userInput}`;
     const respuesta = result.response.text().trim();
 
     let jsonText = respuesta;
-    if (respuesta.includes('```json')) {
-      jsonText = respuesta.split('```json')[1].split('```')[0].trim();
-    } else if (respuesta.includes('```')) {
-      jsonText = respuesta.split('```')[1].split('```')[0].trim();
+    if (respuesta.includes("```json")) {
+      jsonText = respuesta.split("```json")[1].split("```")[0].trim();
+    } else if (respuesta.includes("```")) {
+      jsonText = respuesta.split("```")[1].split("```")[0].trim();
     }
 
     // Limpiar caracteres de control que pueden romper el JSON
-    jsonText = jsonText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+    jsonText = jsonText.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 
     const datos = JSON.parse(jsonText);
 
-    console.log('Mensaje recibido:', datos.mensaje ? 'Sí ✓' : 'No ✗');
-    console.log('Versículos:', datos.versiculos?.length || 0);
+    console.log("Mensaje recibido:", datos.mensaje ? "Sí ✓" : "No ✗");
+    console.log("Versículos:", datos.versiculos?.length || 0);
 
     return res.json({
       success: true,
-      mensaje: datos.mensaje || '',
+      mensaje: datos.mensaje || "",
       versiculos: datos.versiculos || [],
     });
-
   } catch (error) {
-    console.error('Error:', error);
-    
+    console.error("Error:", error);
+
     let errorMessage = error.message;
     let statusCode = 500;
-    
-    if (errorMessage.includes('API_KEY_INVALID')) {
-      errorMessage = 'API key inválida';
+
+    if (errorMessage.includes("API_KEY_INVALID")) {
+      errorMessage = "API key inválida";
       statusCode = 401;
-    } else if (errorMessage.includes('RESOURCE_EXHAUSTED')) {
-      errorMessage = 'Límite de Gemini alcanzado';
+    } else if (errorMessage.includes("RESOURCE_EXHAUSTED")) {
+      errorMessage = "Límite de Gemini alcanzado";
       statusCode = 429;
-    } else if (errorMessage.includes('503')) {
-      errorMessage = 'Servicio no disponible temporalmente';
+    } else if (errorMessage.includes("503")) {
+      errorMessage = "Servicio no disponible temporalmente";
       statusCode = 503;
     }
-    
+
     return res.status(statusCode).json({
       success: false,
       error: errorMessage,
@@ -146,11 +149,11 @@ Persona que busca consuelo: ${userInput}`;
 });
 
 // Ruta de prueba
-app.get('/', (req, res) => {
-  res.json({ message: 'Backend Biblia Help funcionando ✅' });
+app.get("/", (req, res) => {
+  res.json({ message: "Backend Biblia Help funcionando ✅" });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n🚀 Backend corriendo en:`);
   console.log(`   http://localhost:${PORT}`);
   console.log(`   http://192.168.1.6:${PORT}`);

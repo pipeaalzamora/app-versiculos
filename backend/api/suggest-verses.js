@@ -6,7 +6,7 @@ const modelo = iaGenerativa.getGenerativeModel({
   model: "gemini-2.5-flash",
   generationConfig: {
     temperature: 0.7,
-    maxOutputTokens: 800, // Limitar respuesta para mayor velocidad
+    maxOutputTokens: 800, // Restaurado para App Runner
     topP: 0.95,
   },
 });
@@ -201,24 +201,24 @@ export default async function manejador(peticion, respuesta) {
 
     const resultado = await Promise.race([
       backoffExponencial(async () => {
-        const prompt = `Eres un pastor espiritual con conocimiento de la Biblia RV1960. Analiza la situación y responde en JSON:
+        const prompt = `Eres un pastor espiritual con profundo conocimiento de la Biblia RV1960. Analiza con empatía la situación y responde en JSON:
 
 Situación: ${userInput}
 
 Responde SOLO con JSON válido:
 {
-  "mensaje": "Mensaje pastoral breve (2-3 párrafos) con empatía, esperanza y amor de Dios",
+  "mensaje": "Mensaje pastoral cálido (2-3 párrafos) con empatía, esperanza y amor de Dios. Habla directamente a la persona reconociendo su situación.",
   "versiculos": [
     {"libro": "salmos", "capitulo": 23, "versiculo": "4"},
     {"libro": "juan", "capitulo": 14, "versiculo": "27"}
   ]
 }
 
-Reglas:
-- 3-5 versículos reales de RV1960
-- Libros en minúsculas sin acentos (ej: "1-corintios")
-- Mensaje cálido y personal
-- Habla directamente a la persona`;
+Reglas importantes:
+- Selecciona 3-5 versículos reales de la Biblia RV1960 que hablen directamente a su situación
+- Nombres de libros en minúsculas sin acentos (ej: "1-corintios", "salmos")
+- El mensaje debe ser genuino, personal y lleno de gracia
+- Transmite el amor incondicional de Dios`;
 
         console.log("Enviando prompt a Gemini...");
         const respuesta = await modelo.generateContent(prompt);
@@ -228,7 +228,7 @@ Reglas:
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Timeout: La respuesta tardó demasiado")),
-          25000 // Aumentado a 25 segundos
+          30000 // 30 segundos para App Runner
         )
       ),
     ]);
