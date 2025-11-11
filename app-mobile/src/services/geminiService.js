@@ -1,5 +1,5 @@
-import axios from 'axios';
-import { CONFIGURACION } from '../config/constantes';
+import axios from "axios";
+import { CONFIGURACION } from "../config/constantes";
 
 /**
  * Analiza el texto del usuario y sugiere versículos específicos usando el backend
@@ -9,10 +9,10 @@ import { CONFIGURACION } from '../config/constantes';
 export const sugerirVersiculos = async (entradaUsuario) => {
   try {
     // Validar entrada antes de enviar
-    if (!entradaUsuario || typeof entradaUsuario !== 'string') {
+    if (!entradaUsuario || typeof entradaUsuario !== "string") {
       return {
         success: false,
-        error: 'Entrada inválida',
+        error: "Entrada inválida",
         versiculos: [],
       };
     }
@@ -20,7 +20,7 @@ export const sugerirVersiculos = async (entradaUsuario) => {
     if (entradaUsuario.length > 1000) {
       return {
         success: false,
-        error: 'El texto es demasiado largo. Máximo 1000 caracteres.',
+        error: "El texto es demasiado largo. Máximo 1000 caracteres.",
         versiculos: [],
       };
     }
@@ -30,30 +30,31 @@ export const sugerirVersiculos = async (entradaUsuario) => {
     const respuesta = await axios.post(
       url,
       { userInput: entradaUsuario },
-      { 
-        timeout: 30000,
+      {
+        timeout: 20000, // Reducido a 20s para fallar más rápido
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       }
     );
     return respuesta.data;
   } catch (error) {
-    let mensajeError = 'Error al conectar con el servidor';
+    let mensajeError = "Error al conectar con el servidor";
     let codigoError = null;
-    
+
     if (error.response) {
       mensajeError = error.response.data?.error || mensajeError;
       codigoError = error.response.status;
     } else if (error.request) {
-      mensajeError = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-    } else if (error.code === 'ECONNABORTED') {
-      mensajeError = 'La petición tardó demasiado. Intenta de nuevo.';
+      mensajeError =
+        "No se pudo conectar con el servidor. Verifica tu conexión a internet.";
+    } else if (error.code === "ECONNABORTED") {
+      mensajeError = "La petición tardó demasiado. Intenta de nuevo.";
     } else {
       mensajeError = `Error de red: ${error.message}`;
     }
-    
+
     return {
       success: false,
       error: mensajeError,

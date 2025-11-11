@@ -1,41 +1,45 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  Dimensions, 
-  KeyboardAvoidingView, 
-  Platform, 
+import React, { useState, useRef, useEffect } from "react";
+import { StatusBar } from "expo-status-bar";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
   ActivityIndicator,
   ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 // import mobileAds from 'react-native-google-mobile-ads';
-import * as Haptics from 'expo-haptics';
-import { buscarTemasPorPalabra } from './src/data/temasVersiculos.js';
-import { obtenerVersiculo, formatearVersiculo } from './src/services/bibleApiService.js';
-import { sugerirVersiculos } from './src/services/geminiService.js';
-import { useAppStore } from './src/store/useAppStore';
-import { TEMAS } from './src/config/constantes';
+import * as Haptics from "expo-haptics";
+import { buscarTemasPorPalabra } from "./src/data/temasVersiculos.js";
+import {
+  obtenerVersiculo,
+  formatearVersiculo,
+} from "./src/services/bibleApiService.js";
+import { sugerirVersiculos } from "./src/services/geminiService.js";
+import { useAppStore } from "./src/store/useAppStore";
+import { TEMAS } from "./src/config/constantes";
 // import AdBanner from './src/components/AdBanner';
-import VerseCard from './src/components/VerseCard';
-import PastoralMessage from './src/components/PastoralMessage';
-import ThemeToggle from './src/components/ThemeToggle';
+import VerseCard from "./src/components/VerseCard";
+import PastoralMessage from "./src/components/PastoralMessage";
+import ThemeToggle from "./src/components/ThemeToggle";
 // import useInterstitialAd from './src/hooks/useInterstitialAd';
 
 export default function App() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentVerses, setCurrentVerses] = useState([]);
-  const [pastoralMessage, setPastoralMessage] = useState('');
-  const [searchMessage, setSearchMessage] = useState('');
+  const [pastoralMessage, setPastoralMessage] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
   const [isPressed, setIsPressed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const inputRef = useRef(null);
   // const { showAdIfReady} = useInterstitialAd();
-  
+
   // Store
   const { theme, loadPersistedData, addToHistory } = useAppStore();
   const colors = TEMAS[theme] || TEMAS.claro;
@@ -44,7 +48,7 @@ export default function App() {
   useEffect(() => {
     // Cargar datos persistidos
     loadPersistedData();
-    
+
     // Inicializar AdMob (deshabilitado en desarrollo)
     // mobileAds()
     //   .initialize()
@@ -64,26 +68,36 @@ export default function App() {
     try {
       // Validar entrada
       if (!searchTerm.trim()) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        setSearchMessage('Por favor cuéntame cómo te sientes o qué necesitas');
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Warning
+        );
+        setSearchMessage("Por favor cuéntame cómo te sientes o qué necesitas");
         setCurrentVerses([]);
-        setPastoralMessage('');
+        setPastoralMessage("");
         return;
       }
 
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setIsLoading(true);
-      setSearchMessage('');
+      setLoadingMessage("Analizando tu situación...");
+      setSearchMessage("");
       setCurrentVerses([]);
-      setPastoralMessage('');
+      setPastoralMessage("");
 
       // Paso 1: Intentar con IA
       const sugerencia = await sugerirVersiculos(searchTerm);
-      
+
+      if (sugerencia.fromCache) {
+        setLoadingMessage("Respuesta instantánea ⚡");
+      } else {
+        setLoadingMessage("Buscando versículos apropiados...");
+      }
+
       const versiculosObtenidos = [];
 
       // Paso 2: Procesar sugerencias de IA
       if (sugerencia.success && sugerencia.versiculos.length > 0) {
+        setLoadingMessage("Obteniendo versículos completos...");
         // Obtener todos los versículos sugeridos
         for (const ref of sugerencia.versiculos) {
           const resultado = await obtenerVersiculo(
@@ -101,7 +115,7 @@ export default function App() {
             versiculosObtenidos.push(versiculoFormateado);
           }
         }
-        
+
         // Guardar el mensaje pastoral
         if (sugerencia.mensaje) {
           setPastoralMessage(sugerencia.mensaje);
@@ -110,11 +124,17 @@ export default function App() {
 
       // Paso 3: Fallback a búsqueda tradicional (si la IA no devolvió versículos)
       if (versiculosObtenidos.length === 0) {
+        setLoadingMessage("Buscando en temas bíblicos...");
         const temasEncontrados = buscarTemasPorPalabra(searchTerm);
 
         if (temasEncontrados.length > 0) {
-          const temaSeleccionado = temasEncontrados[Math.floor(Math.random() * temasEncontrados.length)];
-          const referenciaSeleccionada = getRandomReference(temaSeleccionado.referencias);
+          const temaSeleccionado =
+            temasEncontrados[
+              Math.floor(Math.random() * temasEncontrados.length)
+            ];
+          const referenciaSeleccionada = getRandomReference(
+            temaSeleccionado.referencias
+          );
 
           const resultado = await obtenerVersiculo(
             referenciaSeleccionada.libro,
@@ -135,51 +155,61 @@ export default function App() {
 
       // Mostrar resultado
       if (versiculosObtenidos.length > 0) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        );
         setCurrentVerses(versiculosObtenidos);
-        setSearchMessage('');
-        
+        setSearchMessage("");
+
         // Guardar en historial (guardar el primero como referencia)
         addToHistory(versiculosObtenidos[0], searchTerm);
-        
+
         // Mostrar anuncio (deshabilitado en desarrollo)
         // showAdIfReady();
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setSearchMessage('No pude encontrar versículos apropiados. Intenta contarme más sobre tu situación.');
+        setSearchMessage(
+          "No pude encontrar versículos apropiados. Intenta contarme más sobre tu situación."
+        );
       }
 
       setIsLoading(false);
+      setLoadingMessage("");
     } catch (error) {
-      console.error('Error en búsqueda:', error);
+      console.error("Error en búsqueda:", error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setSearchMessage('Error al buscar versículos. Verifica tu conexión.');
+      setSearchMessage("Error al buscar versículos. Verifica tu conexión.");
+      setLoadingMessage("");
       setCurrentVerses([]);
-      setPastoralMessage('');
+      setPastoralMessage("");
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Biblia Help</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Biblia Help
+          </Text>
           <ThemeToggle />
         </View>
 
         <TextInput
           ref={inputRef}
           style={[
-            styles.input, 
-            { 
-              borderColor: colors.border, 
+            styles.input,
+            {
+              borderColor: colors.border,
               backgroundColor: colors.surface,
               color: colors.text,
-            }
+            },
           ]}
           placeholder="Cuéntame cómo te sientes hoy... Estoy aquí para escucharte"
           placeholderTextColor={colors.textLight}
@@ -196,9 +226,9 @@ export default function App() {
 
         <TouchableOpacity
           style={[
-            styles.button, 
+            styles.button,
             { backgroundColor: colors.primary },
-            isPressed && { backgroundColor: colors.primaryDark }
+            isPressed && { backgroundColor: colors.primaryDark },
           ]}
           onPress={handleSearch}
           onPressIn={() => setIsPressed(true)}
@@ -207,23 +237,34 @@ export default function App() {
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Buscando...' : 'Buscar Consuelo'}
+            {isLoading ? "Buscando..." : "Buscar Consuelo"}
           </Text>
         </TouchableOpacity>
 
-        <ScrollView 
+        <ScrollView
           style={styles.resultsContainer}
           contentContainerStyle={styles.resultsContent}
           showsVerticalScrollIndicator={false}
         >
           {isLoading && (
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+                style={styles.loader}
+              />
+              {loadingMessage && (
+                <Text style={[styles.loadingText, { color: colors.primary }]}>
+                  {loadingMessage}
+                </Text>
+              )}
+            </View>
           )}
-          
+
           {!isLoading && pastoralMessage && (
             <PastoralMessage mensaje={pastoralMessage} />
           )}
-          
+
           {!isLoading && currentVerses.length > 0 && (
             <>
               {currentVerses.map((verse, index) => (
@@ -233,7 +274,7 @@ export default function App() {
               ))}
             </>
           )}
-          
+
           {!isLoading && searchMessage && (
             <Text style={[styles.message, { color: colors.textLight }]}>
               {searchMessage}
@@ -241,8 +282,8 @@ export default function App() {
           )}
         </ScrollView>
 
-        <StatusBar style={theme === 'oscuro' ? 'light' : 'dark'} />
-        
+        <StatusBar style={theme === "oscuro" ? "light" : "dark"} />
+
         {/* AdBanner deshabilitado en desarrollo */}
         {/* <AdBanner /> */}
       </KeyboardAvoidingView>
@@ -250,7 +291,7 @@ export default function App() {
   );
 }
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const isSmallDevice = width < 375;
 const isLargeDevice = width > 768;
 
@@ -260,26 +301,26 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: isSmallDevice ? 16 : isLargeDevice ? 40 : 24,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: isLargeDevice ? 600 : '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: isLargeDevice ? 600 : "100%",
     marginBottom: 24,
   },
   title: {
     fontSize: isSmallDevice ? 24 : 28,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.5,
   },
   input: {
-    width: '100%',
-    maxWidth: isLargeDevice ? 600 : '100%',
+    width: "100%",
+    maxWidth: isLargeDevice ? 600 : "100%",
     minHeight: isSmallDevice ? 80 : 100,
     maxHeight: 150,
     borderWidth: 2,
@@ -288,7 +329,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: isSmallDevice ? 14 : 16,
     marginBottom: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -299,25 +340,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 12,
     marginBottom: 40,
-    width: '100%',
-    maxWidth: isLargeDevice ? 600 : '100%',
-    shadowColor: '#4A90E2',
+    width: "100%",
+    maxWidth: isLargeDevice ? 600 : "100%",
+    shadowColor: "#4A90E2",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: isSmallDevice ? 16 : 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     letterSpacing: 0.5,
   },
   resultsContainer: {
     flex: 1,
-    width: '100%',
-    maxWidth: isLargeDevice ? 700 : '100%',
+    width: "100%",
+    maxWidth: isLargeDevice ? 700 : "100%",
   },
   resultsContent: {
     paddingHorizontal: isSmallDevice ? 4 : 8,
@@ -329,11 +370,20 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: isSmallDevice ? 14 : 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
+    marginTop: 20,
+  },
+  loadingContainer: {
+    alignItems: "center",
     marginTop: 20,
   },
   loader: {
-    marginTop: 20,
+    marginBottom: 12,
+  },
+  loadingText: {
+    fontSize: isSmallDevice ? 14 : 16,
+    fontWeight: "500",
+    textAlign: "center",
   },
 });

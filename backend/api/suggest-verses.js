@@ -1,12 +1,69 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Inicializar cliente de Gemini con la API key del servidor
 const iaGenerativa = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const modelo = iaGenerativa.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const modelo = iaGenerativa.getGenerativeModel({
+  model: "gemini-2.5-flash",
+  generationConfig: {
+    temperature: 0.7,
+    maxOutputTokens: 800, // Limitar respuesta para mayor velocidad
+    topP: 0.95,
+  },
+});
 
 // Configuración de rate limiting
 const LIMITE_PETICIONES_POR_MINUTO = 60;
 const contadorPeticiones = new Map();
+
+// Caché de respuestas en memoria
+const cacheRespuestas = new Map();
+const TIEMPO_CACHE = 3600000; // 1 hora en milisegundos
+const MAX_ENTRADAS_CACHE = 100;
+
+/**
+ * Genera una clave de caché normalizada
+ * @param {string} texto - Texto del usuario
+ * @returns {string} - Clave de caché
+ */
+const generarClaveCache = (texto) => {
+  return texto.toLowerCase().trim().replace(/\s+/g, " ").substring(0, 200);
+};
+
+/**
+ * Obtiene respuesta del caché si existe y es válida
+ * @param {string} clave - Clave de caché
+ * @returns {Object|null} - Respuesta cacheada o null
+ */
+const obtenerDelCache = (clave) => {
+  const entrada = cacheRespuestas.get(clave);
+  if (!entrada) return null;
+
+  const ahora = Date.now();
+  if (ahora - entrada.timestamp > TIEMPO_CACHE) {
+    cacheRespuestas.delete(clave);
+    return null;
+  }
+
+  return entrada.datos;
+};
+
+/**
+ * Guarda respuesta en el caché
+ * @param {string} clave - Clave de caché
+ * @param {Object} datos - Datos a cachear
+ */
+const guardarEnCache = (clave, datos) => {
+  // Limpiar caché si está lleno
+  if (cacheRespuestas.size >= MAX_ENTRADAS_CACHE) {
+    const primeraKey = cacheRespuestas.keys().next().value;
+    cacheRespuestas.delete(primeraKey);
+  }
+
+  cacheRespuestas.set(clave, {
+    datos,
+    timestamp: Date.now(),
+  });
+};
 
 /**
  * Verifica si se ha excedido el límite de peticiones
@@ -16,21 +73,23 @@ const contadorPeticiones = new Map();
 const verificarLimiteRatePorIp = (ip) => {
   const ahora = Date.now();
   const ventanaTiempo = 60000; // 1 minuto
-  
+
   if (!contadorPeticiones.has(ip)) {
     contadorPeticiones.set(ip, []);
   }
-  
+
   const peticiones = contadorPeticiones.get(ip);
-  const peticionesRecientes = peticiones.filter(tiempo => ahora - tiempo < ventanaTiempo);
-  
+  const peticionesRecientes = peticiones.filter(
+    (tiempo) => ahora - tiempo < ventanaTiempo
+  );
+
   if (peticionesRecientes.length >= LIMITE_PETICIONES_POR_MINUTO) {
     return true;
   }
-  
+
   peticionesRecientes.push(ahora);
   contadorPeticiones.set(ip, peticionesRecientes);
-  
+
   return false;
 };
 
@@ -42,57 +101,66 @@ const verificarLimiteRatePorIp = (ip) => {
  */
 const backoffExponencial = async (funcion, maxReintentos = 3) => {
   let ultimoError;
-  
+
   for (let i = 0; i < maxReintentos; i++) {
     try {
       return await funcion();
     } catch (error) {
       ultimoError = error;
-      const mensajeError = error.message || '';
-      
-      if (mensajeError.includes('429') || mensajeError.includes('503') || mensajeError.includes('RESOURCE_EXHAUSTED')) {
+      const mensajeError = error.message || "";
+
+      if (
+        mensajeError.includes("429") ||
+        mensajeError.includes("503") ||
+        mensajeError.includes("RESOURCE_EXHAUSTED")
+      ) {
         const tiempoEspera = Math.pow(2, i) * 1000;
-        console.log(`Rate limit alcanzado. Reintentando en ${tiempoEspera}ms...`);
-        await new Promise(resolve => setTimeout(resolve, tiempoEspera));
+        console.log(
+          `Rate limit alcanzado. Reintentando en ${tiempoEspera}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, tiempoEspera));
         continue;
       }
-      
+
       throw error;
     }
   }
-  
+
   throw ultimoError;
 };
 
 export default async function manejador(peticion, respuesta) {
   // Manejar preflight CORS
-  if (peticion.method === 'OPTIONS') {
+  if (peticion.method === "OPTIONS") {
     return respuesta.status(200).json({});
   }
 
   // Solo permitir POST
-  if (peticion.method !== 'POST') {
-    return respuesta.status(405).json({ error: 'Método no permitido' });
+  if (peticion.method !== "POST") {
+    return respuesta.status(405).json({ error: "Método no permitido" });
   }
 
   try {
     // Verificar rate limiting por IP
-    const ipCliente = peticion.headers['x-forwarded-for'] || peticion.connection.remoteAddress || 'desconocida';
-    
+    const ipCliente =
+      peticion.headers["x-forwarded-for"] ||
+      peticion.connection.remoteAddress ||
+      "desconocida";
+
     if (verificarLimiteRatePorIp(ipCliente)) {
       return respuesta.status(429).json({
         success: false,
-        error: 'Demasiadas peticiones. Por favor, espera un momento.',
+        error: "Demasiadas peticiones. Por favor, espera un momento.",
         versiculos: [],
       });
     }
 
     const { userInput } = peticion.body;
 
-    if (!userInput || typeof userInput !== 'string') {
-      return respuesta.status(400).json({ 
-        success: false, 
-        error: 'Se requiere userInput como string' 
+    if (!userInput || typeof userInput !== "string") {
+      return respuesta.status(400).json({
+        success: false,
+        error: "Se requiere userInput como string",
       });
     }
 
@@ -100,92 +168,97 @@ export default async function manejador(peticion, respuesta) {
     if (userInput.length > 1000) {
       return respuesta.status(400).json({
         success: false,
-        error: 'El texto es demasiado largo. Máximo 1000 caracteres.',
+        error: "El texto es demasiado largo. Máximo 1000 caracteres.",
         versiculos: [],
       });
     }
 
-    // Usar backoff exponencial
-    const resultado = await backoffExponencial(async () => {
-      const prompt = `Eres un pastor espiritual lleno de la gracia de Dios, con profundo conocimiento de la Biblia Reina Valera 1960.
+    // Verificar caché primero
+    const claveCache = generarClaveCache(userInput);
+    const respuestaCache = obtenerDelCache(claveCache);
 
-Tu misión es escuchar con compasión el corazón de quien te busca, analizar su situación con sabiduría divina, y ministrar con amor y convicción.
+    if (respuestaCache) {
+      console.log("Respuesta servida desde caché");
+      return respuesta.status(200).json({
+        ...respuestaCache,
+        fromCache: true,
+      });
+    }
 
-INSTRUCCIONES:
-1. Lee atentamente lo que la persona comparte contigo
-2. Identifica su dolor, necesidad o situación
-3. Selecciona 3-5 versículos de la Biblia RV1960 que hablen directamente a su corazón
-4. Escribe una palabra de aliento pastoral (2-4 párrafos) que:
-   - Reconozca su dolor o situación con empatía
-   - Ministre esperanza y consuelo con la Palabra de Dios
-   - Hable con convicción y autoridad espiritual
-   - Transmita el amor incondicional de Dios
-   - Sea personal, cálida y llena de gracia
+    // Usar backoff exponencial con timeout
+    const resultado = await Promise.race([
+      backoffExponencial(async () => {
+        const prompt = `Eres un pastor espiritual con conocimiento de la Biblia RV1960. Analiza la situación y responde en JSON:
 
-FORMATO DE RESPUESTA (JSON):
+Situación: ${userInput}
+
+Responde SOLO con JSON válido:
 {
-  "mensaje": "Tu palabra de aliento pastoral aquí. Habla como un pastor que conoce el corazón de Dios y ama a sus ovejas. Usa un tono cálido, compasivo pero con convicción. Menciona cómo Dios ve su situación y qué promesas tiene para ellos.",
+  "mensaje": "Mensaje pastoral breve (2-3 párrafos) con empatía, esperanza y amor de Dios",
   "versiculos": [
     {"libro": "salmos", "capitulo": 23, "versiculo": "4"},
-    {"libro": "juan", "capitulo": 14, "versiculo": "27"},
-    {"libro": "isaias", "capitulo": 41, "versiculo": "10"}
+    {"libro": "juan", "capitulo": 14, "versiculo": "27"}
   ]
 }
 
-REGLAS IMPORTANTES:
-- Solo versículos que EXISTEN en la Biblia RV1960
-- Nombres de libros en minúsculas y sin acentos
-- Libros con números usan guión: "1-corintios", "2-timoteo"
-- Versículos pueden ser rangos: "6-7" o individuales: "16"
-- El mensaje debe ser genuino, no genérico
-- Habla en segunda persona (tú/usted) dirigiéndote a la persona
-- Incluye referencias a la fidelidad de Dios, Su amor y Sus promesas
+Reglas:
+- 3-5 versículos reales de RV1960
+- Libros en minúsculas sin acentos (ej: "1-corintios")
+- Mensaje cálido y personal
+- Habla directamente a la persona`;
 
-Libros válidos: genesis, exodo, levitico, numeros, deuteronomio, josue, jueces, rut, 1-samuel, 2-samuel, 1-reyes, 2-reyes, 1-cronicas, 2-cronicas, esdras, nehemias, ester, job, salmos, proverbios, eclesiastes, cantares, isaias, jeremias, lamentaciones, ezequiel, daniel, oseas, joel, amos, abdias, jonas, miqueas, nahum, habacuc, sofonias, hageo, zacarias, malaquias, mateo, marcos, lucas, juan, hechos, romanos, 1-corintios, 2-corintios, galatas, efesios, filipenses, colosenses, 1-tesalonicenses, 2-tesalonicenses, 1-timoteo, 2-timoteo, tito, filemon, hebreos, santiago, 1-pedro, 2-pedro, 1-juan, 2-juan, 3-juan, judas, apocalipsis
-
-Persona que busca consuelo: ${userInput}`;
-
-      return await modelo.generateContent(prompt);
-    });
+        return await modelo.generateContent(prompt);
+      }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Timeout: La respuesta tardó demasiado")),
+          15000
+        )
+      ),
+    ]);
 
     const textoRespuesta = resultado.response.text().trim();
 
     // Extraer JSON de la respuesta
     let textoJson = textoRespuesta;
-    if (textoRespuesta.includes('```json')) {
-      textoJson = textoRespuesta.split('```json')[1].split('```')[0].trim();
-    } else if (textoRespuesta.includes('```')) {
-      textoJson = textoRespuesta.split('```')[1].split('```')[0].trim();
+    if (textoRespuesta.includes("```json")) {
+      textoJson = textoRespuesta.split("```json")[1].split("```")[0].trim();
+    } else if (textoRespuesta.includes("```")) {
+      textoJson = textoRespuesta.split("```")[1].split("```")[0].trim();
     }
 
     // Limpiar caracteres de control que pueden romper el JSON
-    textoJson = textoJson.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+    textoJson = textoJson.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 
     const datos = JSON.parse(textoJson);
 
-    return respuesta.status(200).json({
+    const respuestaFinal = {
       success: true,
-      mensaje: datos.mensaje || '',
+      mensaje: datos.mensaje || "",
       versiculos: datos.versiculos || [],
-    });
+    };
 
+    // Guardar en caché
+    guardarEnCache(claveCache, respuestaFinal);
+
+    return respuesta.status(200).json(respuestaFinal);
   } catch (error) {
-    console.error('Error al sugerir versículos:', error);
-    
+    console.error("Error al sugerir versículos:", error);
+
     let mensajeError = error.message;
     let codigoEstado = 500;
-    
-    if (mensajeError.includes('API_KEY_INVALID')) {
-      mensajeError = 'API key inválida';
+
+    if (mensajeError.includes("API_KEY_INVALID")) {
+      mensajeError = "API key inválida";
       codigoEstado = 401;
-    } else if (mensajeError.includes('RESOURCE_EXHAUSTED')) {
-      mensajeError = 'Límite de Gemini alcanzado';
+    } else if (mensajeError.includes("RESOURCE_EXHAUSTED")) {
+      mensajeError = "Límite de Gemini alcanzado";
       codigoEstado = 429;
-    } else if (mensajeError.includes('503')) {
-      mensajeError = 'Servicio no disponible temporalmente';
+    } else if (mensajeError.includes("503")) {
+      mensajeError = "Servicio no disponible temporalmente";
       codigoEstado = 503;
     }
-    
+
     return respuesta.status(codigoEstado).json({
       success: false,
       error: mensajeError,
