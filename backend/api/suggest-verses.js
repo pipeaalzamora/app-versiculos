@@ -141,6 +141,16 @@ export default async function manejador(peticion, respuesta) {
   }
 
   try {
+    // Verificar que la API key esté configurada
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY no está configurada");
+      return respuesta.status(500).json({
+        success: false,
+        error: "Configuración del servidor incompleta",
+        versiculos: [],
+      });
+    }
+
     // Verificar rate limiting por IP
     const ipCliente =
       peticion.headers["x-forwarded-for"] ||
@@ -186,6 +196,9 @@ export default async function manejador(peticion, respuesta) {
     }
 
     // Usar backoff exponencial con timeout
+    console.log("Iniciando petición a Gemini...");
+    const tiempoInicio = Date.now();
+
     const resultado = await Promise.race([
       backoffExponencial(async () => {
         const prompt = `Eres un pastor espiritual con conocimiento de la Biblia RV1960. Analiza la situación y responde en JSON:
@@ -207,20 +220,33 @@ Reglas:
 - Mensaje cálido y personal
 - Habla directamente a la persona`;
 
-        return await modelo.generateContent(prompt);
+        console.log("Enviando prompt a Gemini...");
+        const respuesta = await modelo.generateContent(prompt);
+        console.log(`Respuesta recibida en ${Date.now() - tiempoInicio}ms`);
+        return respuesta;
       }),
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Timeout: La respuesta tardó demasiado")),
-          15000
+          25000 // Aumentado a 25 segundos
         )
       ),
     ]);
 
+    // Verificar que la respuesta existe
+    if (!resultado || !resultado.response) {
+      console.error("Resultado inválido:", resultado);
+      throw new Error("El modelo no devolvió una respuesta válida");
+    }
+
     const textoRespuesta = resultado.response.text().trim();
 
     // Log para debugging
-    console.log("Respuesta del modelo:", textoRespuesta.substring(0, 200));
+    console.log(
+      "Respuesta del modelo (primeros 200 chars):",
+      textoRespuesta.substring(0, 200)
+    );
+    console.log("Longitud total de respuesta:", textoRespuesta.length);
 
     if (!textoRespuesta) {
       throw new Error("El modelo devolvió una respuesta vacía");
