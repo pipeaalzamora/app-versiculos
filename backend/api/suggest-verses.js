@@ -219,6 +219,13 @@ Reglas:
 
     const textoRespuesta = resultado.response.text().trim();
 
+    // Log para debugging
+    console.log("Respuesta del modelo:", textoRespuesta.substring(0, 200));
+
+    if (!textoRespuesta) {
+      throw new Error("El modelo devolvió una respuesta vacía");
+    }
+
     // Extraer JSON de la respuesta
     let textoJson = textoRespuesta;
     if (textoRespuesta.includes("```json")) {
@@ -230,7 +237,24 @@ Reglas:
     // Limpiar caracteres de control que pueden romper el JSON
     textoJson = textoJson.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
 
-    const datos = JSON.parse(textoJson);
+    if (!textoJson) {
+      throw new Error("No se pudo extraer JSON de la respuesta del modelo");
+    }
+
+    let datos;
+    try {
+      datos = JSON.parse(textoJson);
+    } catch (parseError) {
+      console.error("Error parseando JSON:", textoJson.substring(0, 200));
+      throw new Error(
+        `Error al parsear respuesta del modelo: ${parseError.message}`
+      );
+    }
+
+    // Validar estructura de datos
+    if (!datos.mensaje && !datos.versiculos) {
+      throw new Error("Respuesta del modelo no tiene el formato esperado");
+    }
 
     const respuestaFinal = {
       success: true,
@@ -243,9 +267,10 @@ Reglas:
 
     return respuesta.status(200).json(respuestaFinal);
   } catch (error) {
-    console.error("Error al sugerir versículos:", error);
+    console.error("Error completo:", error);
+    console.error("Stack:", error.stack);
 
-    let mensajeError = error.message;
+    let mensajeError = error.message || "Error desconocido";
     let codigoEstado = 500;
 
     if (mensajeError.includes("API_KEY_INVALID")) {
@@ -257,12 +282,23 @@ Reglas:
     } else if (mensajeError.includes("503")) {
       mensajeError = "Servicio no disponible temporalmente";
       codigoEstado = 503;
+    } else if (mensajeError.includes("Timeout")) {
+      mensajeError = "La petición tardó demasiado. Intenta de nuevo.";
+      codigoEstado = 504;
+    } else if (
+      mensajeError.includes("parsear") ||
+      mensajeError.includes("JSON")
+    ) {
+      mensajeError =
+        "Error procesando respuesta del modelo. Intenta reformular tu consulta.";
+      codigoEstado = 500;
     }
 
     return respuesta.status(codigoEstado).json({
       success: false,
       error: mensajeError,
       versiculos: [],
+      debug: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 }
